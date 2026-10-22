@@ -1,0 +1,843 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>artRandom Editor</title>
+<style>
+:root {
+  --bg: #f3eee4; --surface: #fffdf8; --ink: #1e1b17; --muted: #7a7266; --line: #e2dacb;
+  --chip: #e9e1d2; --accent: #c8402a; --accent-ink: #fff; --field: #fff; --sel: #ece4d4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15130f; --surface: #1f1c17; --ink: #ede7db; --muted: #9a9184; --line: #353028;
+    --chip: #2b2720; --accent: #ff6b4f; --accent-ink: #1a0f0c; --field: #17150f; --sel: #2c2821;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15130f; --surface: #1f1c17; --ink: #ede7db; --muted: #9a9184; --line: #353028;
+  --chip: #2b2720; --accent: #ff6b4f; --accent-ink: #1a0f0c; --field: #17150f; --sel: #2c2821;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex; flex-direction: column;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: inherit; }
+
+/* верхняя панель */
+.top {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.brand { font: 600 22px/1 "Iowan Old Style", "Palatino Linotype", Georgia, serif; margin-right: 4px; }
+.brand span { color: var(--accent); }
+.brand small { font: 13px/1 -apple-system, sans-serif; color: var(--muted); margin-left: 6px; }
+.status { color: var(--muted); font-size: 13px; flex: 1; min-width: 160px; }
+.status.dirty { color: var(--accent); }
+.btn {
+  border: 1px solid var(--line); background: transparent; border-radius: 8px; padding: 6px 12px; cursor: pointer;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+}
+.btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: 0.4; cursor: default; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.danger:hover { border-color: var(--accent); color: var(--accent); }
+.btn.small { padding: 2px 8px; font-size: 13px; border-radius: 6px; }
+.banner {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+  padding: 10px 16px; background: var(--sel); border-bottom: 1px solid var(--line);
+}
+.banner[hidden] { display: none; }
+.banner p { margin: 0; flex: 1; min-width: 240px; }
+
+/* раскладка */
+.layout { flex: 1; display: flex; min-height: 0; }
+nav {
+  width: 250px; flex: none; overflow-y: auto; padding: 10px 8px 24px;
+  border-right: 1px solid var(--line); background: var(--surface);
+}
+.nav-sec {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 14px 8px 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted);
+}
+.nav-sec:first-child { margin-top: 2px; }
+.nav-item {
+  display: flex; width: 100%; gap: 6px; align-items: baseline; text-align: left;
+  border: 0; background: transparent; border-radius: 6px; padding: 5px 8px; cursor: pointer;
+}
+.nav-item:hover { background: var(--bg); }
+.nav-item.on { background: var(--sel); font-weight: 600; }
+.nav-item .meta {
+  margin-left: auto; max-width: 45%; flex: none; color: var(--muted); font-size: 12px; font-weight: 400;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nav-item .err { color: var(--accent); font-weight: 700; }
+.nav-help { margin: 20px 8px 0; color: var(--muted); font-size: 12px; }
+main { flex: 1; display: flex; min-width: 0; overflow: hidden; }
+.work { flex: 1; min-width: 0; overflow: auto; padding: 20px 24px 64px; }
+.panel {
+  width: 500px; flex: none; overflow-y: auto; padding: 16px 18px 64px;
+  border-left: 1px solid var(--line); background: var(--surface);
+}
+.panel .title-input { font-size: 22px; min-width: 0; }
+.card-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 16px; }
+.card-chips .lbl { color: var(--muted); font-size: 13px; margin-right: 2px; }
+.card-chip {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 5px 10px; cursor: pointer;
+  display: inline-flex; gap: 6px; align-items: center;
+}
+.card-chip:hover { border-color: var(--muted); }
+.card-chip[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.card-chip .gear { color: var(--muted); }
+.card-chip .err { color: var(--accent); font-weight: 700; }
+
+/* формы */
+.pane-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.title-input {
+  flex: 1; min-width: 200px; border: 0; border-bottom: 1px solid transparent; background: transparent; padding: 2px 0;
+  font: 600 26px/1.2 "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+}
+.title-input:hover, .title-input:focus { border-bottom-color: var(--line); outline: none; }
+.field { display: grid; gap: 4px; margin-bottom: 12px; }
+.field > span { font-size: 12px; color: var(--muted); }
+.field .help { font-size: 12px; color: var(--muted); }
+input[type=text], input[type=number], input[type=search], select, textarea {
+  width: 100%; border: 1px solid var(--line); background: var(--field); border-radius: 7px; padding: 6px 9px;
+}
+input:focus, select:focus, textarea:focus, .cell:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+textarea { resize: vertical; }
+.fields-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+.check { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-bottom: 12px; cursor: pointer; }
+.check input { width: auto; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip {
+  border: 1px solid var(--line); background: transparent; color: var(--muted);
+  border-radius: 999px; padding: 2px 10px; font-size: 12px; cursor: pointer;
+}
+.chip:hover { color: var(--ink); border-color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.chip.var { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; border-style: dashed; }
+.chip.var.special { color: var(--accent); }
+
+/* карточка */
+h3 { margin: 22px 0 10px; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.slot-box { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 12px 14px 4px; margin-bottom: 12px; }
+.slot-head { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+.slot-head select { width: auto; font-weight: 600; }
+.slot-head .sp { flex: 1; }
+.slot-desc { font-size: 12px; color: var(--muted); margin: 0 0 10px; }
+.add-slot { display: flex; gap: 8px; align-items: center; }
+.add-slot select { width: auto; }
+.preview { border: 1px solid var(--line); background: var(--bg); border-radius: 14px; padding: 12px 14px 14px; margin-bottom: 16px; }
+.preview .pane-head { margin-bottom: 8px; }
+.preview h4 { margin: 0; flex: 1; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.pv-slot + .pv-slot { margin-top: 10px; }
+.pv-slot .k { color: var(--muted); font-size: 12px; }
+.pv-slot .v { font: 19px/1.25 "Iowan Old Style", "Palatino Linotype", Georgia, serif; }
+.pv-slot .v.error { color: var(--accent); font: 13px/1.4 -apple-system, sans-serif; }
+.pv-slot .n { color: var(--muted); font-size: 12px; }
+.pv-hint { margin-top: 12px; padding-top: 8px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 12px; white-space: pre-line; }
+
+/* таблица */
+.tbl-tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+.tbl-tools input[type=search] { width: 220px; }
+.muted { color: var(--muted); font-size: 13px; }
+.grid-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); max-height: calc(100vh - 260px); }
+table.grid { border-collapse: separate; border-spacing: 0; min-width: 100%; }
+.grid th, .grid td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); vertical-align: top; padding: 0; }
+.grid thead th { position: sticky; top: 0; background: var(--sel); z-index: 1; }
+.grid th.num, .grid td.num { width: 40px; text-align: right; color: var(--muted); font-size: 12px; padding: 6px 6px 0 0; background: var(--surface); }
+.grid thead th.num { background: var(--sel); }
+.col-head { display: flex; align-items: center; gap: 2px; padding: 3px; min-width: 140px; }
+.col-head input { border: 0; background: transparent; font-weight: 600; padding: 3px 6px; }
+.cell { min-width: 140px; max-width: 380px; padding: 6px 9px; white-space: pre-wrap; word-break: break-word; min-height: 32px; }
+.grid td.del { width: 30px; border-right: 0; }
+.x { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 4px 8px; font-size: 15px; line-height: 1; }
+.x:hover { color: var(--accent); }
+.grid tr.hidden { display: none; }
+
+/* наборы */
+.preset-box { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; max-width: 900px; }
+.preset-box .pane-head { margin-bottom: 8px; }
+.preset-box .pane-head input { flex: 1; font-weight: 600; }
+
+@media (max-width: 900px) {
+  .layout { flex-direction: column; }
+  nav { width: auto; max-height: 34vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  main { flex-direction: column; overflow: auto; }
+  .work { overflow: visible; padding: 16px; }
+  .panel { width: auto; overflow: visible; border-left: 0; border-top: 1px solid var(--line); }
+  .fields-2 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="brand">art<span>Random</span><small>редактор</small></div>
+  <div class="status" id="status"></div>
+  <a class="btn" href="index.html" target="_blank">Открыть рандомайзер ↗</a>
+  <button class="btn" id="download">Скачать config.js</button>
+  <button class="btn primary" id="save" title="⌘S / Ctrl+S">Сохранить</button>
+</div>
+<div class="banner" id="banner" hidden></div>
+<div class="layout">
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+
+<script src="engine.js"></script>
+<script src="config.js"></script>
+<script>
+const E = window.ArtEngine;
+
+// ---------- утилиты ----------
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k.startsWith('aria-')) { e.setAttribute(k, String(!!v)); continue; }
+    if (v == null || v === false) continue;
+    if (k === 'class') e.className = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (k === 'value' || k === 'checked' || k === 'textContent') e[k] = v;
+    else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const kid of kids.flat(Infinity)) if (kid != null && kid !== false) e.append(kid.nodeType ? kid : String(kid));
+  return e;
+}
+// replaceChildren, понимающий вложенные массивы и пропуски, как h()
+const put = (node, ...kids) => node.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false));
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem('artRandomEditor:' + k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem('artRandomEditor:' + k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem('artRandomEditor:' + k); } catch {} },
+};
+const setOpt = (obj, key, v) => { if (v === '' || v == null || (Array.isArray(v) && !v.length)) delete obj[key]; else obj[key] = v; };
+const move = (arr, i, d) => { const j = i + d; if (j < 0 || j >= arr.length) return; [arr[i], arr[j]] = [arr[j], arr[i]]; };
+const uniqueName = (base, taken) => { let n = 1, name = base; while (taken.includes(name)) name = `${base} ${++n}`; return name; };
+
+if (!E || !window.ARTRANDOM_CONFIG) {
+  document.getElementById('main').append(h('p', {}, !E
+    ? 'Не загрузился engine.js — он должен лежать рядом с editor.html.'
+    : 'Не загрузился config.js — он должен лежать рядом с editor.html. Если его правили руками, проверьте синтаксис.'));
+  throw new Error('artRandom editor: нет движка или конфига');
+}
+
+// ---------- состояние ----------
+const ORIGINAL = E.serialize(window.ARTRANDOM_CONFIG);
+let cfg = structuredClone(window.ARTRANDOM_CONFIG);
+cfg.tables ||= []; cfg.cards ||= []; cfg.presets ||= [];
+let lastSaved = ORIGINAL;
+let savedNote = '';
+let fileHandle = null;
+const findCard = id => cfg.cards.find(c => c.id === id);
+const findTable = name => cfg.tables.find(t => t.name === name);
+const usesTable = (card, name) => (card?.slots || []).some(s => s.table === name);
+const cardsUsing = name => cfg.cards.filter(c => usesTable(c, name));
+const orphanCards = () => cfg.cards.filter(c => !(c.slots || []).some(s => findTable(s.table)));
+const cardErrors = card => E.buildCard(cfg, card).filter(s => s.error).map(s => s.error);
+
+// sel: { kind: 'table' | 'orphans' | 'presets', id: имя таблицы, card: id открытой карточки }
+let sel = store.get('sel');
+if (!sel || !['table', 'orphans', 'presets'].includes(sel.kind)) sel = { kind: 'table', id: cfg.tables[0]?.name };
+
+function select(next) {
+  sel = next;
+  store.set('sel', sel);
+  renderNav();
+  renderMain();
+}
+
+function openCard(id) {
+  sel.card = id;
+  store.set('sel', sel);
+  renderPanel();
+  renderCardChips();
+}
+
+// ---------- изменения, черновик, статус ----------
+let pending;
+function changed({ main = false, panel = false } = {}) {
+  if (main) renderMain();
+  else if (panel) renderPanel();
+  clearTimeout(pending);
+  pending = setTimeout(() => {
+    store.set('draft', cfg);
+    renderNav();
+    renderCardChips();
+    updateStatus();
+    refreshPreview();
+  }, 250);
+}
+
+const isDirty = () => E.serialize(cfg) !== lastSaved;
+function updateStatus() {
+  const st = document.getElementById('status');
+  const dirty = isDirty();
+  st.classList.toggle('dirty', dirty);
+  st.textContent = dirty ? '● Есть несохранённые изменения' : (savedNote || 'Изменений нет');
+}
+
+async function saveToDisk() {
+  clearTimeout(pending);
+  const text = E.serialize(cfg);
+  if ('showSaveFilePicker' in window) {
+    try {
+      if (!fileHandle) {
+        fileHandle = await showSaveFilePicker({
+          suggestedName: 'config.js',
+          types: [{ description: 'Конфиг artRandom', accept: { 'text/javascript': ['.js'] } }],
+        });
+      }
+      const w = await fileHandle.createWritable();
+      await w.write(text);
+      await w.close();
+      lastSaved = text;
+      store.del('draft');
+      savedNote = `Сохранено в ${fileHandle.name} — обновите вкладку с рандомайзером`;
+      updateStatus();
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      fileHandle = null;
+      console.warn('Запись не удалась, скачиваю файл', e);
+    }
+  }
+  downloadFile(text);
+}
+
+function downloadFile(text = E.serialize(cfg)) {
+  const a = h('a', { href: URL.createObjectURL(new Blob([text], { type: 'text/javascript' })), download: 'config.js' });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  lastSaved = text;
+  store.set('draft', cfg); // черновик живёт, пока скачанный файл не положат в папку
+  savedNote = 'config.js скачан — положите его в папку artRandom вместо старого';
+  updateStatus();
+}
+
+document.getElementById('save').onclick = saveToDisk;
+document.getElementById('download').onclick = () => downloadFile();
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); saveToDisk(); }
+});
+window.addEventListener('beforeunload', e => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+function checkDraft() {
+  const draft = store.get('draft');
+  if (!draft) return;
+  if (E.serialize(draft) === ORIGINAL) { store.del('draft'); return; }
+  const banner = document.getElementById('banner');
+  banner.hidden = false;
+  put(banner,
+    h('p', {}, 'Есть несохранённые изменения с прошлого раза (или скачанный config.js ещё не положили в папку).'),
+    h('button', { class: 'btn primary', onclick() { cfg = draft; banner.hidden = true; select(sel); updateStatus(); } }, 'Восстановить'),
+    h('button', { class: 'btn', onclick() { store.del('draft'); banner.hidden = true; } }, 'Отбросить'),
+  );
+}
+
+// ---------- навигация ----------
+function renderNav() {
+  const nav = document.getElementById('nav');
+  const item = (label, meta, isOn, onclick, err) => h('button', { class: 'nav-item' + (isOn ? ' on' : ''), onclick },
+    err ? h('span', { class: 'err', title: err }, '!') : null, label, meta != null ? h('span', { class: 'meta' }, meta) : null);
+  const errorOf = cards => cards.map(cardErrors).find(e => e.length)?.[0];
+  // открытая карточка остаётся открытой, если она использует и новую таблицу
+  const goTable = name => select({ kind: 'table', id: name, card: usesTable(findCard(sel.card), name) ? sel.card : undefined });
+  const orphans = orphanCards();
+  put(nav,
+    h('div', { class: 'nav-sec' }, 'Таблицы', h('button', { class: 'btn small', onclick: addTable }, '+ таблица')),
+    cfg.tables.map(t => {
+      const cards = cardsUsing(t.name);
+      return item(t.name, cards.length ? `${t.rows.length} · ${cards.length} карт.` : t.rows.length,
+        sel.kind === 'table' && sel.id === t.name, () => goTable(t.name), errorOf(cards));
+    }),
+    orphans.length ? item('Без таблицы', `${orphans.length} карт.`, sel.kind === 'orphans', () => select({ kind: 'orphans' }), errorOf(orphans)) : null,
+    h('div', { class: 'nav-sec' }, 'Рандомайзер'),
+    item('Наборы карточек', cfg.presets.length, sel.kind === 'presets', () => select({ kind: 'presets' })),
+    h('p', { class: 'nav-help' }, 'Карточки открываются со страницы таблицы, из которой они берут значения.'),
+    h('p', { class: 'nav-help' },
+      '«Сохранить» в Chrome и Edge записывает config.js прямо в папку: в первый раз выберите файл config.js рядом с index.html и подтвердите замену. ',
+      'В других браузерах файл скачается — положите его в папку вместо старого.'),
+  );
+}
+
+function renderMain() {
+  let pane;
+  if (sel.kind === 'table' && findTable(sel.id)) pane = tablePane(findTable(sel.id));
+  else if (sel.kind === 'orphans') pane = orphansPane();
+  else if (sel.kind === 'presets') pane = presetsPane();
+  else pane = h('p', { class: 'muted' }, 'Выберите таблицу слева.');
+  put(document.getElementById('main'), h('div', { class: 'work' }, pane), h('aside', { class: 'panel', id: 'panel', hidden: true }));
+  renderPanel();
+}
+
+function renderPanel() {
+  const panel = document.getElementById('panel');
+  if (!panel) return;
+  const card = sel.kind !== 'presets' && findCard(sel.card);
+  panel.hidden = !card;
+  if (!card) { panel.replaceChildren(); return; }
+  const top = panel.scrollTop;
+  panel.replaceChildren(cardPanel(card));
+  panel.scrollTop = top;
+  refreshPreview();
+}
+
+function closeCard() {
+  delete sel.card;
+  store.set('sel', sel);
+  renderPanel();
+  renderCardChips();
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && sel.card && !e.target.closest('input, textarea, select, .cell')) closeCard();
+});
+
+// Строка карточек над таблицей: открыть настройки или добавить новую
+function cardChips(cards, tableName) {
+  return h('div', { class: 'card-chips', id: 'card-chips' },
+    h('span', { class: 'lbl' }, cards.length ? 'Карточки:' : 'Карточек из этой таблицы пока нет.'),
+    cards.map(c => {
+      const err = cardErrors(c)[0];
+      return h('button', { class: 'card-chip', 'aria-pressed': sel.card === c.id, title: 'Настройки карточки', onclick: () => (sel.card === c.id ? closeCard() : openCard(c.id)) },
+        err ? h('span', { class: 'err', title: err }, '!') : h('span', { class: 'gear' }, '⚙'), c.title || 'без названия');
+    }),
+    h('button', { class: 'btn small', onclick: () => addCard(tableName) }, '+ карточка'));
+}
+
+function renderCardChips() {
+  const old = document.getElementById('card-chips');
+  if (!old) return;
+  const cards = sel.kind === 'orphans' ? orphanCards() : cardsUsing(sel.id);
+  old.replaceWith(cardChips(cards, sel.kind === 'table' ? sel.id : null));
+}
+
+function orphansPane() {
+  return h('div', {},
+    h('div', { class: 'pane-head' }, h('h2', { class: 'title-input', style: 'margin:0' }, 'Без таблицы')),
+    h('p', { class: 'muted' }, 'Карточки, которые не берут значения из таблиц: числа, варианты через «/», или с удалённой таблицей.'),
+    cardChips(orphanCards(), null));
+}
+
+// ---------- карточки ----------
+const TYPE_HELP = {
+  pick: 'Случайная строка таблицы по шаблону: {столбец} подставляет значение этого столбца. Строки, где нужный столбец пуст, пропускаются.',
+  sample: 'Несколько разных значений из одного столбца — например, «три объекта».',
+  chunk: 'Несколько значений подряд из одного столбца — как строки буриме.',
+  rows: 'Каждая строка таблицы становится отдельным слотом, значение — случайный вариант из «a / b / c». Если вариант один — «да / нет».',
+  options: 'Случайный вариант из списка, записанного прямо здесь.',
+  number: 'Случайное целое число в диапазоне.',
+};
+const BY_LABELS = { cell: 'все ячейки равновероятны', row: 'сначала строка, потом ячейка', column: 'сначала столбец, потом ячейка' };
+
+function newCardId() {
+  let id;
+  do id = 'card_' + Math.random().toString(36).slice(2, 7); while (findCard(id));
+  return id;
+}
+
+function addCard(tableName) {
+  const card = { id: newCardId(), title: 'Новая карточка', slots: [] };
+  card.slots.push(tableName ? { type: 'pick', label: '', table: tableName } : { type: 'options', label: '', options: 'да / нет' });
+  cfg.cards.push(card);
+  changed();
+  openCard(card.id);
+}
+
+function cardPanel(card) {
+  const i = cfg.cards.indexOf(card);
+  card.slots ||= [];
+  const hint = h('textarea', { rows: 3, value: card.hint || '', oninput: e => { setOpt(card, 'hint', e.target.value); changed(); } });
+
+  return h('div', {},
+    h('div', { class: 'pane-head' },
+      h('input', { class: 'title-input', value: card.title, placeholder: 'Название карточки',
+        oninput: e => { card.title = e.target.value; changed(); } }),
+      h('button', { class: 'btn small', title: 'Закрыть (Esc)', onclick: closeCard }, '✕')),
+    h('div', { class: 'pane-head' },
+      h('span', { class: 'muted' }, 'Место в рандомайзере'),
+      h('button', { class: 'btn small', title: 'Раньше', disabled: i === 0, onclick: () => { move(cfg.cards, i, -1); changed({ panel: true }); } }, '↑'),
+      h('button', { class: 'btn small', title: 'Позже', disabled: i === cfg.cards.length - 1, onclick: () => { move(cfg.cards, i, 1); changed({ panel: true }); } }, '↓'),
+      h('span', { class: 'sp', style: 'flex:1' }),
+      h('button', { class: 'btn small', onclick() {
+        const copy = structuredClone(card);
+        copy.id = newCardId(); copy.title = card.title + ' (копия)';
+        cfg.cards.splice(i + 1, 0, copy);
+        changed();
+        openCard(copy.id);
+      } }, 'Дублировать'),
+      h('button', { class: 'btn small danger', onclick() {
+        if (!confirm(`Удалить карточку «${card.title}»?`)) return;
+        cfg.cards.splice(i, 1);
+        cfg.presets.forEach(p => { p.cards = p.cards.filter(id => id !== card.id); });
+        changed();
+        closeCard();
+      } }, 'Удалить')),
+    h('div', { class: 'preview' },
+      h('div', { class: 'pane-head' }, h('h4', {}, 'Предпросмотр'), h('button', { class: 'btn small', onclick: () => refreshPreview() }, 'Бросить')),
+      h('div', { id: 'preview-body' })),
+    h('div', { class: 'fields-2' },
+      h('label', { class: 'field' }, h('span', {}, 'Источник (серая подпись в заголовке)'),
+        h('input', { type: 'text', value: card.src || '', oninput: e => { setOpt(card, 'src', e.target.value); changed(); } })),
+      h('label', { class: 'check', style: 'align-self:end' },
+        h('input', { type: 'checkbox', checked: !!card.compact, onchange: e => { setOpt(card, 'compact', e.target.checked || null); changed(); } }),
+        'Компактный вид: подпись слева, значение справа'),
+    ),
+    h('label', { class: 'field' }, h('span', {}, 'Подсказка под карточкой (ссылки становятся кликабельными)'), hint),
+    h('h3', {}, 'Слоты'),
+    card.slots.map((s, si) => slotBox(card, s, si)),
+    addSlotControl(card));
+}
+
+function refreshPreview() {
+  const body = document.getElementById('preview-body');
+  const card = findCard(sel.card);
+  if (!body || !card) return;
+  const slots = E.buildCard(cfg, card);
+  put(body,
+    slots.length ? null : h('p', { class: 'muted' }, 'Добавьте слот.'),
+    slots.map(s => {
+      const o = E.rollSlot(s);
+      return h('div', { class: 'pv-slot' },
+        s.label ? h('div', { class: 'k' }, s.label) : null,
+        h('div', { class: 'v' + (o.error ? ' error' : '') }, (o.error ? '⚠ ' : '') + o.t),
+        o.n.map(n => h('div', { class: 'n' }, n)));
+    }),
+    card.hint ? h('div', { class: 'pv-hint' }, card.hint) : null,
+  );
+}
+
+function addSlotControl(card) {
+  const type = h('select', {}, Object.entries(E.SLOT_TYPES).map(([k, t]) => h('option', { value: k }, t.name)));
+  return h('div', { class: 'add-slot' },
+    type,
+    h('button', { class: 'btn', onclick() {
+      const s = { type: type.value };
+      if (!['options', 'number'].includes(s.type)) s.table = cfg.tables[0]?.name || '';
+      if (s.type === 'options') s.options = 'да / нет';
+      if (s.type === 'number') Object.assign(s, { min: 1, max: 6 });
+      card.slots.push(s);
+      changed({ panel: true });
+    } }, '+ слот'));
+}
+
+function slotBox(card, s, si) {
+  const box = h('div', { class: 'slot-box' });
+  const draw = () => put(box, slotContents(card, s, si, draw));
+  draw();
+  return box;
+}
+
+function slotContents(card, s, si, redraw) {
+  const table = findTable(s.table);
+  const ctx = { table, focused: null };
+  const spec = E.SLOT_TYPES[s.type] || { name: s.type, fields: [] };
+
+  const typeSel = h('select', { onchange(e) {
+    const keep = { label: s.label, table: s.table };
+    for (const k of Object.keys(s)) delete s[k];
+    s.type = e.target.value;
+    for (const f of E.SLOT_TYPES[s.type].fields) if (keep[f]) s[f] = keep[f];
+    if (E.SLOT_TYPES[s.type].fields.includes('table') && !s.table) s.table = cfg.tables[0]?.name || '';
+    changed();
+    redraw();
+  } }, Object.entries(E.SLOT_TYPES).map(([k, t]) => h('option', { value: k, selected: k === s.type || null }, t.name)));
+
+  const head = h('div', { class: 'slot-head' },
+    typeSel, h('span', { class: 'sp' }),
+    h('button', { class: 'btn small', title: 'Выше', disabled: si === 0, onclick: () => { move(card.slots, si, -1); changed({ panel: true }); } }, '↑'),
+    h('button', { class: 'btn small', title: 'Ниже', disabled: si === card.slots.length - 1, onclick: () => { move(card.slots, si, 1); changed({ panel: true }); } }, '↓'),
+    h('button', { class: 'btn small danger', title: 'Удалить слот', onclick: () => { card.slots.splice(si, 1); changed({ panel: true }); } }, '✕'));
+
+  const cols = table ? table.columns : [];
+  const isRows = s.type === 'rows';
+
+  const text = (label, key, { template = false, placeholder = '', help = '' } = {}) => {
+    const inp = h('input', { type: 'text', value: s[key] ?? '', placeholder,
+      oninput: e => { setOpt(s, key, e.target.value); changed(); } });
+    if (template) { inp.addEventListener('focus', () => { ctx.focused = inp; }); ctx.focused ||= inp; }
+    return h('label', { class: 'field' }, h('span', {}, label), inp, help ? h('span', { class: 'help' }, help) : null);
+  };
+  const num = (label, key, help = '') => h('label', { class: 'field' }, h('span', {}, label),
+    h('input', { type: 'number', value: s[key] ?? '', oninput: e => { setOpt(s, key, e.target.value === '' ? null : Number(e.target.value)); changed(); } }),
+    help ? h('span', { class: 'help' }, help) : null);
+  const colChips = (label, key, help, onToggle) => h('div', { class: 'field' }, h('span', {}, label),
+    cols.length ? h('div', { class: 'chips' }, cols.map(c => h('button', {
+      class: 'chip', 'aria-pressed': (s[key] || []).includes(c),
+      onclick() {
+        const cur = new Set(s[key] || []);
+        cur.has(c) ? cur.delete(c) : cur.add(c);
+        setOpt(s, key, cols.filter(x => cur.has(x)));
+        changed();
+        onToggle ? onToggle() : this.setAttribute('aria-pressed', cur.has(c));
+      } }, c))) : h('span', { class: 'help' }, 'Сначала выберите таблицу.'),
+    help ? h('span', { class: 'help' }, help) : null);
+
+  const FIELDS = {
+    label: () => text(isRows ? 'Подпись слота (шаблон)' : 'Подпись', 'label',
+      isRows ? { template: true, placeholder: cols[0] ? `{${cols[0]}}` : '', help: 'Например {параметр}. Пусто — первый столбец.' } : { placeholder: 'например, профессия' }),
+    table: () => h('label', { class: 'field' }, h('span', {}, 'Таблица'),
+      h('select', { onchange(e) {
+        s.table = e.target.value;
+        ['cells', 'column', 'columns'].forEach(k => delete s[k]);
+        changed();
+        redraw();
+      } }, h('option', { value: '' }, '— выберите —'),
+      cfg.tables.map(t => h('option', { value: t.name, selected: t.name === s.table || null }, t.name))),
+      s.table && !table ? h('span', { class: 'help', style: 'color:var(--accent)' }, `Таблицы «${s.table}» нет`) : null),
+    text: () => text('Значение (шаблон)', 'text', { template: true,
+      placeholder: (s.cells || []).length ? '{$cell}' : cols[0] ? `{${cols[0]}}` : '',
+      help: 'Пусто — значение первого столбца (или выбранной ячейки).' }),
+    notes: () => {
+      const ta = h('textarea', { rows: Math.max(2, (s.notes || []).length), value: (s.notes || []).join('\n'),
+        oninput: e => { setOpt(s, 'notes', e.target.value.split('\n').map(x => x.trim()).filter(Boolean)); changed(); } });
+      ta.addEventListener('focus', () => { ctx.focused = ta; });
+      return h('label', { class: 'field' }, h('span', {}, 'Подстрочники — по одному на строку'), ta,
+        h('span', { class: 'help' }, 'Строка скрывается, если в ней есть пустой столбец.'));
+    },
+    cells: () => colChips('Брать одну ячейку из столбцов (необязательно)', 'cells',
+      'Например, «кто» = животное или объект. Значение ячейки — {$cell}, название столбца — {$col}.', redraw),
+    by: () => (s.cells || []).length ? h('label', { class: 'field' }, h('span', {}, 'Как выбирать ячейку'),
+      h('select', { onchange: e => { setOpt(s, 'by', e.target.value === 'cell' ? null : e.target.value); changed(); } },
+        Object.entries(BY_LABELS).map(([k, v]) => h('option', { value: k, selected: (s.by || 'cell') === k || null }, v)))) : null,
+    column: () => h('label', { class: 'field' }, h('span', {}, 'Столбец'),
+      h('select', { onchange: e => { setOpt(s, 'column', e.target.value); changed(); } },
+        cols.map(c => h('option', { value: c, selected: c === (s.column || cols[0]) || null }, c)))),
+    columns: () => colChips('Из каких столбцов (пусто — из всех)', 'columns'),
+    count: () => num(isRows ? 'Сколько строк брать' : 'Сколько значений', 'count', isRows ? 'Пусто — все строки.' : ''),
+    size: () => num('Сколько подряд', 'size'),
+    join: () => text('Разделитель', 'join', { placeholder: ', ' }),
+    options: () => text(isRows ? 'Варианты (шаблон, через /)' : 'Варианты через /', 'options',
+      isRows ? { template: true, placeholder: '{варианты}', help: 'Пусто — берётся подпись слота.' } : { placeholder: 'лучшее / худшее' }),
+    min: () => num('От', 'min'),
+    max: () => num('До', 'max'),
+  };
+
+  const fieldNodes = spec.fields.map(f => FIELDS[f]?.());
+  // подсказка-вставка столбцов в шаблон
+  let vars = null;
+  if ((s.type === 'pick' || isRows) && cols.length) {
+    const specials = s.type === 'pick' ? ['$row', ...((s.cells || []).length ? ['$cell', '$col', '$colIndex'] : [])] : [];
+    vars = h('div', { class: 'field' }, h('span', {}, 'Вставить в шаблон'),
+      h('div', { class: 'chips' },
+        cols.map(c => varChip(c, ctx)),
+        specials.map(c => varChip(c, ctx, true))));
+  }
+  return [head, h('p', { class: 'slot-desc' }, TYPE_HELP[s.type] || ''), fieldNodes, vars];
+}
+
+function varChip(name, ctx, special = false) {
+  return h('button', {
+    class: 'chip var' + (special ? ' special' : ''),
+    onmousedown: e => e.preventDefault(), // не уводить фокус из поля
+    onclick() {
+      const inp = ctx.focused;
+      if (!inp) return;
+      const ins = `{${name}}`;
+      const a = inp.selectionStart ?? inp.value.length, b = inp.selectionEnd ?? a;
+      inp.value = inp.value.slice(0, a) + ins + inp.value.slice(b);
+      inp.focus();
+      inp.setSelectionRange(a + ins.length, a + ins.length);
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+    },
+  }, `{${name}}`);
+}
+
+// ---------- таблицы ----------
+function addTable() {
+  const name = uniqueName('новая таблица', cfg.tables.map(t => t.name));
+  cfg.tables.push({ name, columns: ['значение'], rows: [['']] });
+  changed();
+  select({ kind: 'table', id: name });
+}
+
+function renameTable(t, name, input) {
+  name = name.trim();
+  if (!name || (name !== t.name && findTable(name))) {
+    alert(name ? `Таблица «${name}» уже есть.` : 'У таблицы должно быть имя.');
+    input.value = t.name;
+    return;
+  }
+  for (const c of cfg.cards) for (const s of c.slots || []) if (s.table === t.name) s.table = name;
+  t.name = name;
+  sel.id = name;
+  store.set('sel', sel);
+  changed({ main: true });
+}
+
+function renameColumn(t, ci, name, input) {
+  name = name.trim();
+  const old = t.columns[ci];
+  if (name === old) return;
+  if (!name || t.columns.includes(name)) {
+    alert(name ? `Столбец «${name}» уже есть.` : 'У столбца должно быть имя.');
+    input.value = old;
+    return;
+  }
+  t.columns[ci] = name;
+  const swap = str => str.split(`{${old}}`).join(`{${name}}`);
+  for (const c of cfg.cards) for (const s of c.slots || []) {
+    if (s.table !== t.name) continue;
+    for (const k of ['text', 'label', 'options']) if (typeof s[k] === 'string') s[k] = swap(s[k]);
+    if (s.notes) s.notes = s.notes.map(swap);
+    for (const k of ['cells', 'columns']) if (s[k]) s[k] = s[k].map(x => (x === old ? name : x));
+    if (s.column === old) s.column = name;
+  }
+  changed();
+}
+
+const CE = (() => {
+  try { const d = document.createElement('div'); d.contentEditable = 'plaintext-only'; return d.contentEditable === 'plaintext-only' ? 'plaintext-only' : 'true'; }
+  catch { return 'true'; }
+})();
+
+// Вставка из Google Таблиц / Excel: TSV, ячейки с переносами — в кавычках
+function parseTSV(text) {
+  text = text.replace(/\r\n?/g, '\n').replace(/\n$/, '');
+  const rows = [[]];
+  let cell = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') q = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === '') q = true;
+    else if (ch === '\t') { rows[rows.length - 1].push(cell); cell = ''; }
+    else if (ch === '\n') { rows[rows.length - 1].push(cell); rows.push([]); cell = ''; }
+    else cell += ch;
+  }
+  rows[rows.length - 1].push(cell);
+  return rows.map(r => r.map(c => c.replace(/\s*\n\s*/g, ' ').trim()));
+}
+
+function tablePane(t) {
+  const used = cardsUsing(t.name);
+  const gridWrap = h('div', { class: 'grid-wrap' });
+  let query = '';
+
+  const normalize = () => t.rows.forEach(r => { while (r.length < t.columns.length) r.push(''); r.length = t.columns.length; });
+
+  function drawGrid(focus) {
+    normalize();
+    const q = query.toLowerCase();
+    const thead = h('thead', {}, h('tr', {},
+      h('th', { class: 'num' }, '#'),
+      t.columns.map((c, ci) => {
+        const inp = h('input', { value: c, title: 'Имя столбца — по нему шаблоны берут значение: {' + c + '}',
+          onchange: e => renameColumn(t, ci, e.target.value, e.target) });
+        return h('th', {}, h('div', { class: 'col-head' }, inp,
+          h('button', { class: 'x', title: 'Удалить столбец', onclick() {
+            const filled = t.rows.filter(r => r[ci]).length;
+            if (filled && !confirm(`Удалить столбец «${c}»? В нём ${filled} непустых ячеек.`)) return;
+            if (t.columns.length === 1) { alert('В таблице должен остаться хотя бы один столбец.'); return; }
+            t.columns.splice(ci, 1);
+            t.rows.forEach(r => r.splice(ci, 1));
+            changed();
+            drawGrid();
+          } }, '×')));
+      }),
+      h('th', { class: 'del' })));
+    const tbody = h('tbody', {}, t.rows.map((row, r) => h('tr', { class: q && !row.join(' ').toLowerCase().includes(q) ? 'hidden' : null },
+      h('td', { class: 'num' }, r + 1),
+      row.map((v, c) => h('td', {}, h('div', { class: 'cell', contenteditable: CE, spellcheck: 'false', 'data-r': r, 'data-c': c, textContent: v }))),
+      h('td', { class: 'del' }, h('button', { class: 'x', title: 'Удалить строку', onclick() { t.rows.splice(r, 1); changed(); drawGrid(); } }, '×')))));
+    gridWrap.replaceChildren(h('table', { class: 'grid' }, thead, tbody));
+    if (focus) gridWrap.querySelector(`.cell[data-r="${focus[0]}"][data-c="${focus[1]}"]`)?.focus();
+  }
+
+  gridWrap.addEventListener('input', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    t.rows[+cell.dataset.r][+cell.dataset.c] = cell.textContent.replace(/\s*\n\s*/g, ' ');
+    changed();
+  });
+  gridWrap.addEventListener('keydown', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell || e.key !== 'Enter' || e.shiftKey) return;
+    e.preventDefault();
+    const r = +cell.dataset.r + 1, c = +cell.dataset.c;
+    if (r >= t.rows.length) { t.rows.push(t.columns.map(() => '')); changed(); }
+    drawGrid([r, c]);
+  });
+  gridWrap.addEventListener('paste', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    const data = parseTSV(text);
+    if (data.length === 1 && data[0].length === 1) { document.execCommand('insertText', false, data[0][0]); return; }
+    const r0 = +cell.dataset.r, c0 = +cell.dataset.c;
+    const width = Math.max(...data.map(r => r.length));
+    while (t.columns.length < c0 + width) t.columns.push(uniqueName('столбец', t.columns));
+    data.forEach((vals, dr) => {
+      if (!t.rows[r0 + dr]) t.rows[r0 + dr] = t.columns.map(() => '');
+      normalize();
+      vals.forEach((v, dc) => { t.rows[r0 + dr][c0 + dc] = v; });
+    });
+    changed();
+    drawGrid([r0, c0]);
+  });
+
+  drawGrid();
+
+  return h('div', {},
+    h('div', { class: 'pane-head' },
+      h('input', { class: 'title-input', value: t.name, title: 'Имя таблицы', onchange: e => renameTable(t, e.target.value, e.target) }),
+      h('button', { class: 'btn small danger', onclick() {
+        const msg = used.length
+          ? `Таблица используется в карточках: ${used.map(c => c.title).join(', ')}. Они покажут ошибку. Удалить «${t.name}»?`
+          : `Удалить таблицу «${t.name}»?`;
+        if (!confirm(msg)) return;
+        cfg.tables.splice(cfg.tables.indexOf(t), 1);
+        changed();
+        select({ kind: 'table', id: cfg.tables[0]?.name });
+      } }, 'Удалить таблицу')),
+    cardChips(used, t.name),
+    h('div', { class: 'tbl-tools' },
+      h('input', { type: 'search', placeholder: 'Поиск по строкам', oninput: e => { query = e.target.value; drawGrid(); } }),
+      h('button', { class: 'btn', onclick() { t.rows.push(t.columns.map(() => '')); changed(); query = ''; drawGrid([t.rows.length - 1, 0]); gridWrap.scrollTop = gridWrap.scrollHeight; } }, '+ строка'),
+      h('button', { class: 'btn', onclick() { t.columns.push(uniqueName('столбец', t.columns)); changed(); drawGrid(); gridWrap.scrollLeft = gridWrap.scrollWidth; } }, '+ столбец'),
+      h('span', { class: 'muted' }, 'Enter — следующая строка. Можно вставить кусок прямо из Google Таблиц: данные разложатся по ячейкам.')),
+    gridWrap);
+}
+
+// ---------- наборы ----------
+function presetsPane() {
+  return h('div', {},
+    h('div', { class: 'pane-head' }, h('h2', { class: 'title-input', style: 'margin:0' }, 'Наборы'),
+      h('button', { class: 'btn', onclick() {
+        cfg.presets.push({ name: uniqueName('Новый набор', cfg.presets.map(p => p.name)), cards: [] });
+        changed({ main: true });
+      } }, '+ набор')),
+    h('p', { class: 'muted' }, 'Набор включает в рандомайзере сразу несколько карточек. Кнопка «Всё» добавляется автоматически.'),
+    cfg.presets.map((p, i) => h('div', { class: 'preset-box' },
+      h('div', { class: 'pane-head' },
+        h('input', { type: 'text', value: p.name, oninput: e => { p.name = e.target.value; changed(); } }),
+        h('button', { class: 'btn small', disabled: i === 0, onclick: () => { move(cfg.presets, i, -1); changed({ main: true }); } }, '↑'),
+        h('button', { class: 'btn small', disabled: i === cfg.presets.length - 1, onclick: () => { move(cfg.presets, i, 1); changed({ main: true }); } }, '↓'),
+        h('button', { class: 'btn small danger', onclick: () => { if (confirm(`Удалить набор «${p.name}»?`)) { cfg.presets.splice(i, 1); changed({ main: true }); } } }, '✕')),
+      h('div', { class: 'chips' }, cfg.cards.map(c => h('button', {
+        class: 'chip', 'aria-pressed': p.cards.includes(c.id),
+        onclick() {
+          const on = p.cards.includes(c.id);
+          p.cards = on ? p.cards.filter(x => x !== c.id) : cfg.cards.map(x => x.id).filter(id => id === c.id || p.cards.includes(id));
+          this.setAttribute('aria-pressed', !on);
+          changed();
+        } }, c.title))))));
+}
+
+// ---------- старт ----------
+renderNav();
+renderMain();
+updateStatus();
+checkDraft();
+</script>
+</body>
+</html>
